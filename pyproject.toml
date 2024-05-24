@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "vis"
+version = "0.1.0"
+description = ""
+authors = ["Tin Švagelj <tin.svagelj@live.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pdf2image = "^1.17.0"
+pillow = "^10.3.0"
+tesserocr = "^2.7.0"
+pyyaml = "^6.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
