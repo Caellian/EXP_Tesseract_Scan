@@ -2,11 +2,12 @@
 
 from pdf2image import convert_from_path
 from tesserocr import PyTessBaseAPI, PSM, RIL
-from tkinter import Tk, Label, Entry, Button, Canvas, Toplevel
+from tkinter import Tk, Label, Entry, Button, Canvas, Toplevel, StringVar
 from PIL import Image, ImageTk, ImageDraw
 import yaml
 import string
 import os
+from subber import *
 
 TEXT = "text.yml"
 BAD_INPUT = "bad.yml"
@@ -206,6 +207,9 @@ def check_word_in_dict(word, dictionary):
             return None
     return result
 
+def line_word_iter(line):
+    return filter(lambda it: len(it) > 0, map(lambda x: x.strip(), line.split(" ")))
+
 def preprocess():
     print("Preprocessing...")
     print("Loading content...")
@@ -216,20 +220,29 @@ def preprocess():
     dictionary = load_dict()
 
     unhandled = {}
+    # word ended with "-" and isn't in dictionary; look for continuation
+    next_first_handled = False
     
     for page in content:
         print(f"Processing: {page}...")
         boxes = content[page]["boxes"]
         unhandled[page] = []
+        
         if boxes is None:
             continue
-        for box in boxes:
+        for box_i, box in enumerate(boxes):
             text = box["text"]
-            words = list(filter(lambda x: len(x.strip()) > 0, map(lambda x: x.strip(), text.split(" "))))
+            words = list(line_word_iter(text))
             words = intersperse(words, " ")
             box_unhandled = []
 
             fixed_words = []
+
+            if next_first_handled:
+                fixed_words.append(words[0])
+                words = words[1:]
+                next_first_handled = False
+            
             for word in words:
                 if word == " ":
                     if len(fixed_words) > 0 and fixed_words[-1] != " ":
@@ -246,7 +259,6 @@ def preprocess():
                     continue
                 
                 dict_word = check_word_in_dict(word, dictionary)
-                
                 if dict_word is not None:
                     fixed_words.extend(dict_word)
                     continue
@@ -259,6 +271,38 @@ def preprocess():
                     if after is not None:
                         fixed_words.extend(after)
                     continue
+
+                if word.endswith("-"):
+                    next_first = None
+                    box_i = box_i + 1
+                    if len(boxes) > box_i:
+                        next_box = boxes[box_i]
+                        next_first = next(line_word_iter(next_box["text"]))
+                        while next_first is None and len(boxes) > box_i + 1:
+                            box_i += 1
+                            next_box = inner_boxes[box_i]
+                            next_first = next(line_word_iter(next_box["text"]))
+                    else:
+                        next_box = None
+                        next_page_key = "page-" + str(content[page]["page"] + 1)
+                        while next_first is None and content[next_page_key] is not None:
+                            page_inner = content[next_page_key]
+                            inner_boxes = page_inner["boxes"]
+                            if inner_boxes is None:
+                                next_page_key = "page-" + str(page_inner["page"] + 1)
+                                continue
+                            box_i = 0
+                            while next_first is None and len(inner_boxes) > box_i:
+                                next_box = inner_boxes[box_i]
+                                next_first = next(line_word_iter(next_box["text"]))
+                            next_page_key = "page-" + str(page_inner["page"] + 1)
+                            
+                    if next_first is not None:
+                        dict_word = check_word_in_dict(word[:-1] + next_first, dictionary)
+                        if dict_word is not None:
+                            fixed_words.append(word)
+                            next_first_handled = True
+                            continue
 
                 box_unhandled.append({
                     "page": page,
@@ -284,9 +328,14 @@ def preprocess():
         "unhandled": unhandled
     }
 
+PREPROC_RESULT = "state.yml"
 
 def main():
-    data = preprocess()
+    if os.path.exists(PREPROC_RESULT):
+        data = yaml.safe_load(open(PREPROC_RESULT, "r"))
+    else:
+        data = preprocess()
+        yaml.dump(data, open(PREPROC_RESULT, "w+"))
 
     first = next(iter(data["unhandled"]))
     if first is None:
@@ -317,16 +366,18 @@ def main():
     canvas.grid(column=0, row=0, rowspan=6)
 
     # Create labels
-    found_label = Label(window, text=f"FOUND: {first['text']}")
+    found_label = Label(window, text=f"In: \"{first['text']}\"")
     found_label.grid(column=1, row=0)
 
-    unknown_label = Label(window, text=f"UNKNOWN: {first['word']}")
+    unknown_label = Label(window, text=f"Unknown: \"{first['word']}\"")
     unknown_label.grid(column=1, row=1)
 
     # Create a row with a label and a text box
+    subvar = StringVar()
+    subvar.set(first['word'])
     substitution_label = Label(window, text="Substitution:")
     substitution_label.grid(column=1, row=2, sticky="e")
-    substitution_value = Entry(window, textvariable=first['word'])
+    substitution_value = Entry(window, textvariable=subvar)
     substitution_value.grid(column=2, row=2, sticky="w")
 
     replace_button = Button(window, text="Replace", command=close_window)

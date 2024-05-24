@@ -5,10 +5,10 @@ koristeći tesseract ocr, kako bi se anotirale slike skeniranog udžbenika sa
 tekstom.
 
 Prvotno skeniran udžbenik je u [`original.pdf`](./original.pdf), iz njega su
-stranice izrezane, očišćene, popravljene i transformirane kako bi rezultati OCRa
-bili točniji. Obrađena verzija je [`dio1.pdf`](./dio1.pdf), no stranice su
-sačuvane u [`pages`](./pages) direktoriju kako bi se olašao rad u Pythonu.
-Rezultati inicijalnog OCR skeniranja su u [`text.yml`](./text.yml).
+stranice izrezane, očišćene, popravljene i transformirane pomoću GIMPa, kako bi
+rezultati OCRa bili točniji. Obrađena verzija je [`dio1.pdf`](./dio1.pdf), no
+stranice su sačuvane u [`pages`](./pages) direktoriju kako bi se olašao rad u
+Pythonu. Rezultati inicijalnog OCR skeniranja su u [`text.yml`](./text.yml).
 
 Kako bi se poboljšali rezultati, od dobivenog teksta je izgrađen i očišćen
 riječnik [`dict.txt`](./dict.txt). Riječnik sadrži nekolicinu dodatnih riječi
